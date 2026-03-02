@@ -44,7 +44,7 @@ ALLOW_HINT_FALLBACK=true
 **Frontend** — `frontend/.env` already set to:
 
 ```env
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=https://ciphersqlstudio-1km8.onrender.com/api
 ```
 
 ### 3. Seed the Database
@@ -255,7 +255,7 @@ Test case panel shows ✓ or ✗
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `VITE_API_URL` | Backend API URL | `http://localhost:5000/api` |
+| `VITE_API_URL` | Backend API URL | `https://ciphersqlstudio-1km8.onrender.com/api` |
 
 ---
 
