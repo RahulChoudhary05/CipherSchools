@@ -1,0 +1,31 @@
+{
+  "name": "ciphersqlstudio",
+  "version": "1.0.0",
+  "description": "SQL Learning Platform - Browser-based SQL practice with AI hints",
+  "private": true,
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "seed": "cd backend && npm run seed",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm start",
+    "clean": "node cleanup.js"
+  },
+  "keywords": [
+    "sql",
+    "learning",
+    "education",
+    "react",
+    "nodejs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "pg": "^8.19.0"
+  }
+}
