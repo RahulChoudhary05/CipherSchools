@@ -12,6 +12,15 @@ const sampleTableSchema = new mongoose.Schema({
 }, { _id: false });
 
 const assignmentSchema = new mongoose.Schema({
+  sourcePack: {
+    type: String,
+    default: 'core'
+  },
+  dataset: {
+    key: { type: String },
+    name: { type: String },
+    sourceUrl: { type: String }
+  },
   title: {
     type: String,
     required: true,
@@ -34,6 +43,16 @@ const assignmentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  starterSql: {
+    type: String,
+    default: ''
+  },
+  solutionSql: {
+    type: String,
+    default: '',
+    select: false
+  },
+  tags: [String],
   hints: [{
     type: String
   }],

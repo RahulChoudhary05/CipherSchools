@@ -11,7 +11,7 @@ import CipherLogo from './CipherLogo'
 const TABS_LEFT = ['Description', 'Schema']
 const TABS_RIGHT = ['Testcase', 'Test Result']
 
-function AttemptView({ assignment, onBack, initialQuery = '' }) {
+function AttemptView({ assignment, onBack, initialQuery = '', onRefreshWorkspace }) {
   const { isAuthenticated, user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -38,6 +38,11 @@ function AttemptView({ assignment, onBack, initialQuery = '' }) {
     return !stripped || stripped.toUpperCase() === 'SELECT'
   }
 
+  const shouldRefreshWorkspace = (err) => {
+    const msg = String(err?.response?.data?.error || err?.message || '').toLowerCase()
+    return msg.includes('schema') || msg.includes('workspace') || msg.includes('does not exist') || msg.includes('invalid workspaceid')
+  }
+
   const handleExecute = useCallback(async () => {
     if (isQueryEmpty(sqlQuery)) {
       setError('Please write a SQL query first.')
@@ -49,7 +54,19 @@ function AttemptView({ assignment, onBack, initialQuery = '' }) {
     setTestResult(null)
     setRightTab('Test Result')
     try {
-      const res = await queryAPI.execute(sqlQuery, assignment.workspaceId)
+      let workspaceId = assignment.workspaceId
+      let res
+      try {
+        res = await queryAPI.execute(sqlQuery, workspaceId)
+      } catch (err) {
+        if (onRefreshWorkspace && shouldRefreshWorkspace(err)) {
+          const freshAssignment = await onRefreshWorkspace()
+          workspaceId = freshAssignment.workspaceId
+          res = await queryAPI.execute(sqlQuery, workspaceId)
+        } else {
+          throw err
+        }
+      }
       setQueryResults(res.data.data)
       setExecTime(res.data.data.executionTime)
     } catch (err) {
@@ -69,7 +86,19 @@ function AttemptView({ assignment, onBack, initialQuery = '' }) {
     setValidateLoading(true)
     setRightTab('Test Result')
     try {
-      const res = await queryAPI.validate(sqlQuery, assignment.workspaceId, assignment._id)
+      let workspaceId = assignment.workspaceId
+      let res
+      try {
+        res = await queryAPI.validate(sqlQuery, workspaceId, assignment._id)
+      } catch (err) {
+        if (onRefreshWorkspace && shouldRefreshWorkspace(err)) {
+          const freshAssignment = await onRefreshWorkspace()
+          workspaceId = freshAssignment.workspaceId
+          res = await queryAPI.validate(sqlQuery, workspaceId, assignment._id)
+        } else {
+          throw err
+        }
+      }
       setQueryResults(res.data.data)
       setTestResult({
         passed: res.data.data.passed,
@@ -79,7 +108,7 @@ function AttemptView({ assignment, onBack, initialQuery = '' }) {
       // Save attempt if user is authenticated (save on every submit, pass or fail)
       if (isAuthenticated) {
         try {
-          await progressAPI.saveAttempt(assignment._id, assignment.workspaceId, sqlQuery, res.data.data.passed)
+          await progressAPI.saveAttempt(assignment._id, workspaceId, sqlQuery, res.data.data.passed)
         } catch (err) {
           console.error('Failed to save progress:', err)
         }
@@ -259,19 +288,36 @@ function AttemptView({ assignment, onBack, initialQuery = '' }) {
                 )}
 
                 {/* Expected Output Section */}
-                {assignment.expectedOutput?.type && (
+                {assignment.expectedOutput?.columns?.length > 0 && Array.isArray(assignment.expectedOutput.value) && (
                   <div className="problem-panel__output-section">
                     <div className="problem-panel__example-block">
                       <div className="problem-panel__example-label">Output:</div>
                       <div className="problem-panel__output-table">
                         <table className="problem-panel__data-table">
                           <thead>
-                            <tr><th>Column</th><th>Value</th></tr>
+                            <tr>
+                              {assignment.expectedOutput.columns.map((col, i) => (
+                                <th key={i}>{col}</th>
+                              ))}
+                            </tr>
                           </thead>
                           <tbody>
-                            <tr><td>Result Type</td><td>{assignment.expectedOutput.type}</td></tr>
+                            {assignment.expectedOutput.value.slice(0, 5).map((row, ri) => (
+                              <tr key={ri}>
+                                {assignment.expectedOutput.columns.map((col, ci) => (
+                                  <td key={ci}>
+                                    {row[col] === null || row[col] === undefined ? 'NULL' : String(row[col])}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
                           </tbody>
                         </table>
+                        {assignment.expectedOutput.value.length > 5 && (
+                          <div className="problem-panel__more-rows">
+                            +{assignment.expectedOutput.value.length - 5} more rows...
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

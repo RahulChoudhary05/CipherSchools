@@ -1,7 +1,11 @@
 import axios from 'axios'
 import authApi from './authApi'
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://ciphersqlstudio-1km8.onrender.com/api'
+const DEFAULT_API_URL = import.meta.env.DEV
+  ? 'http://localhost:5000/api'
+  : 'https://ciphersqlstudio-1km8.onrender.com/api'
+
+const API_URL = (import.meta.env.VITE_API_URL || DEFAULT_API_URL).replace(/\/$/, '')
 
 const api = axios.create({
   baseURL: API_URL,

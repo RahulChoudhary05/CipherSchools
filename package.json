@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "free-port:dev": "kill-port 5000 5173 || echo Dev ports already free",
+    "predev": "npm run free-port:dev",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
@@ -23,7 +25,8 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "kill-port": "^2.0.1"
   },
   "dependencies": {
     "pg": "^8.19.0"

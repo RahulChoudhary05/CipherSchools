@@ -28,7 +28,8 @@ class AssignmentController {
     const client = await pgPool.connect();
 
     try {
-      const assignment = await Assignment.findById(id);
+      const assignment = await Assignment.findById(id)
+        .select('+starterSql');
       if (!assignment) {
         return res.status(404).json({ success: false, error: 'Assignment not found.' });
       }
@@ -51,18 +52,26 @@ class AssignmentController {
 
           await client.query(`CREATE TABLE "${workspaceId}"."${safeName}" (${colDefs})`);
 
-          // Insert rows using parameterized queries
+          // Batch insert all rows in a single query to avoid per-row network latency
           if (table.rows && Array.isArray(table.rows) && table.rows.length > 0) {
             const colNames = table.columns.map(c => `"${c.columnName.replace(/[^a-zA-Z0-9_]/g, '_')}"`);
-            for (const row of table.rows) {
-              const values = table.columns.map(c => {
-                const val = row[c.columnName];
-                return val === undefined ? null : val;
+            const numCols = table.columns.length;
+            const CHUNK = Math.floor(65000 / Math.max(numCols, 1)); // stay under pg's 65535 param limit
+            for (let offset = 0; offset < table.rows.length; offset += CHUNK) {
+              const slice = table.rows.slice(offset, offset + CHUNK);
+              const allValues = [];
+              const valuePlaceholders = slice.map((row) => {
+                const rowVals = table.columns.map(c => {
+                  const val = row[c.columnName];
+                  return val === undefined ? null : val;
+                });
+                allValues.push(...rowVals);
+                const start = allValues.length - numCols;
+                return `(${rowVals.map((_, i) => `$${start + i + 1}`).join(', ')})`;
               });
-              const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
               await client.query(
-                `INSERT INTO "${workspaceId}"."${safeName}" (${colNames.join(', ')}) VALUES (${placeholders})`,
-                values
+                `INSERT INTO "${workspaceId}"."${safeName}" (${colNames.join(', ')}) VALUES ${valuePlaceholders.join(', ')}`,
+                allValues
               );
             }
           }

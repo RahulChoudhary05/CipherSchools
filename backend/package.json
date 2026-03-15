@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed": "node src/seeds/assignmentsSeeder.js"
+    "seed": "node src/seeds/assignmentsSeeder.js",
+    "seed:unified": "node src/seeds/unifiedQuestionBankSeeder.js",
+    "datasets:pull": "node src/seeds/pullKaggleDatasets.js"
   },
   "keywords": [
     "sql",

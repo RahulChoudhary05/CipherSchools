@@ -511,6 +511,15 @@
     gap: $space-2;
   }
 
+  &__more-rows {
+    font-family: $font-mono;
+    font-size: $text-xs;
+    color: #6e7681;
+    padding: $space-1 $space-3;
+    border-top: 1px dashed #30363d;
+    text-align: center;
+  }
+
   &__explanation-text {
     font-size: 1rem;
     line-height: 1.7;

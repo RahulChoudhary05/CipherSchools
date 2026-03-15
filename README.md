@@ -56,6 +56,33 @@ npm run seed
 
 This seeds SQL assignments across Easy / Medium / Hard difficulty.
 
+### 3.1 Build Unified Question Bank From Kaggle/AdventureWorks (Optional)
+
+Add Kaggle credentials to `backend/.env`:
+
+```env
+KAGGLE_USERNAME=your_kaggle_username
+KAGGLE_KEY=your_kaggle_api_key
+```
+
+Install Kaggle CLI:
+
+```bash
+py -m pip install kaggle
+```
+
+Download all configured datasets and seed unified assignments:
+
+```bash
+cd backend
+npm run datasets:pull
+npm run seed:unified
+```
+
+Notes:
+- The script auto-creates `C:/Users/<you>/.kaggle/kaggle.json` from env vars if missing.
+- Keep Kaggle keys in backend `.env` (already gitignored), not in frontend files.
+
 ### 4. Run the App
 
 ```bash

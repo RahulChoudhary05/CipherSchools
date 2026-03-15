@@ -14,32 +14,45 @@ function AttemptPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const fetchAssignmentData = async () => {
+    setLoading(true)
+    const response = await assignmentsAPI.getById(id)
+    setAssignment(response.data.data)
+
+    if (isAuthenticated) {
+      try {
+        const progRes = await progressAPI.getAssignmentProgress(id)
+        if (progRes.data?.progress?.sqlQuery) {
+          setInitialQuery(progRes.data.progress.sqlQuery)
+        }
+      } catch {
+        // Ignore progress errors to avoid blocking assignment loading
+      }
+    }
+
+    setLoading(false)
+    return response.data.data
+  }
+
+  const refreshWorkspace = async () => {
+    const fresh = await assignmentsAPI.getById(id)
+    setAssignment(fresh.data.data)
+    return fresh.data.data
+  }
+
   useEffect(() => {
     let active = true
-    async function fetchAssignmentData() {
+    async function loadPageData() {
       try {
-        setLoading(true)
-        const response = await assignmentsAPI.getById(id)
-        if (active) setAssignment(response.data.data)
-
-        // If authenticated, also try fetching their previous code
-        if (isAuthenticated) {
-          try {
-            const progRes = await progressAPI.getAssignmentProgress(id)
-            if (active && progRes.data?.progress?.sqlQuery) {
-              setInitialQuery(progRes.data.progress.sqlQuery)
-            }
-          } catch {
-            // Ignore errors; user can still start a fresh attempt
-          }
-        }
+        await fetchAssignmentData()
       } catch (err) {
         if (active) setError(err.response?.data?.error || 'Failed to load assignment')
       } finally {
         if (active) setLoading(false)
       }
     }
-    fetchAssignmentData()
+
+    loadPageData()
 
     return () => {
       active = false
@@ -81,6 +94,7 @@ function AttemptPage() {
       assignment={assignment} 
       onBack={handleBack}
       initialQuery={initialQuery}
+      onRefreshWorkspace={refreshWorkspace}
     />
   )
 }

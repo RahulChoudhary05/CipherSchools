@@ -15,14 +15,30 @@ const app = express();
 app.use(helmet());
 
 // CORS - Support multiple origins (comma-separated)
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+const defaultOrigins = [
+  'http://localhost:5173',
+  'https://ciphersqlschool.vercel.app'
+];
+
+const envOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
-  .map(origin => origin.trim());
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
+
+    const isLocalhostDevOrigin =
+      (process.env.NODE_ENV || 'development') !== 'production' &&
+      /^http:\/\/localhost:\d+$/.test(origin);
+
+    if (isLocalhostDevOrigin) {
+      return callback(null, true);
+    }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -84,7 +100,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 CipherSQLStudio Server running on port ${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Frontend URL: ${process.env.CORS_ORIGIN}`);
+  console.log(`🔗 Allowed CORS origins: ${allowedOrigins.join(', ')}`);
 });
 
 module.exports = app;
