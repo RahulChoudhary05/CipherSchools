@@ -11,6 +11,44 @@ import CipherLogo from './CipherLogo'
 const TABS_LEFT = ['Description', 'Schema']
 const TABS_RIGHT = ['Testcase', 'Test Result']
 
+const SQL_KEYWORDS = [
+  'select', 'from', 'where', 'group', 'by', 'order', 'having', 'limit', 'offset',
+  'join', 'left', 'right', 'inner', 'outer', 'full', 'cross', 'on',
+  'with', 'as', 'distinct', 'union', 'all', 'case', 'when', 'then', 'else', 'end',
+  'and', 'or', 'not', 'in', 'is', 'null', 'between', 'like', 'exists',
+  'count', 'sum', 'avg', 'min', 'max', 'asc', 'desc'
+]
+
+const SQL_KEYWORD_REGEX = new RegExp(`\\b(${SQL_KEYWORDS.join('|')})\\b`, 'gi')
+
+function normalizeSqlForExecution(rawSql) {
+  if (!rawSql || typeof rawSql !== 'string') return rawSql
+
+  // Preserve string literals and quoted identifiers while uppercasing keywords elsewhere.
+  return rawSql
+    .split(/('(?:''|[^'])*'|"(?:""|[^"])*")/g)
+    .map((part, idx) => {
+      if (idx % 2 === 1) return part
+      return part.replace(SQL_KEYWORD_REGEX, (kw) => kw.toUpperCase())
+    })
+    .join('')
+}
+
+function formatSqlError(err, fallbackMessage) {
+  const apiError = err?.response?.data
+  const sqlError = apiError?.sqlError
+  const message = apiError?.error || err?.message || fallbackMessage
+  if (!sqlError) return message
+
+  const parts = [message]
+  if (sqlError.code) parts.push(`Code: ${sqlError.code}`)
+  if (sqlError.position) parts.push(`Position: ${sqlError.position}`)
+  if (sqlError.detail) parts.push(`Detail: ${sqlError.detail}`)
+  if (sqlError.hint) parts.push(`Hint: ${sqlError.hint}`)
+
+  return parts.join('\n')
+}
+
 function AttemptView({ assignment, onBack, initialQuery = '', onRefreshWorkspace }) {
   const { isAuthenticated, user, logout } = useAuth()
   const navigate = useNavigate()
@@ -48,6 +86,10 @@ function AttemptView({ assignment, onBack, initialQuery = '', onRefreshWorkspace
       setError('Please write a SQL query first.')
       return
     }
+    const executableQuery = normalizeSqlForExecution(sqlQuery)
+    if (executableQuery !== sqlQuery) {
+      setSqlQuery(executableQuery)
+    }
     setError('')
     setHint('')
     setLoading(true)
@@ -57,12 +99,12 @@ function AttemptView({ assignment, onBack, initialQuery = '', onRefreshWorkspace
       let workspaceId = assignment.workspaceId
       let res
       try {
-        res = await queryAPI.execute(sqlQuery, workspaceId)
+        res = await queryAPI.execute(executableQuery, workspaceId)
       } catch (err) {
         if (onRefreshWorkspace && shouldRefreshWorkspace(err)) {
           const freshAssignment = await onRefreshWorkspace()
           workspaceId = freshAssignment.workspaceId
-          res = await queryAPI.execute(sqlQuery, workspaceId)
+          res = await queryAPI.execute(executableQuery, workspaceId)
         } else {
           throw err
         }
@@ -70,17 +112,21 @@ function AttemptView({ assignment, onBack, initialQuery = '', onRefreshWorkspace
       setQueryResults(res.data.data)
       setExecTime(res.data.data.executionTime)
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to execute query.')
+      setError(formatSqlError(err, 'Failed to execute query.'))
       setQueryResults(null)
     } finally {
       setLoading(false)
     }
-  }, [sqlQuery, assignment])
+  }, [sqlQuery, assignment, onRefreshWorkspace])
 
   const handleRunTests = useCallback(async () => {
     if (isQueryEmpty(sqlQuery)) {
       setError('Please write a SQL query first.')
       return
+    }
+    const executableQuery = normalizeSqlForExecution(sqlQuery)
+    if (executableQuery !== sqlQuery) {
+      setSqlQuery(executableQuery)
     }
     setError('')
     setValidateLoading(true)
@@ -89,12 +135,12 @@ function AttemptView({ assignment, onBack, initialQuery = '', onRefreshWorkspace
       let workspaceId = assignment.workspaceId
       let res
       try {
-        res = await queryAPI.validate(sqlQuery, workspaceId, assignment._id)
+        res = await queryAPI.validate(executableQuery, workspaceId, assignment._id)
       } catch (err) {
         if (onRefreshWorkspace && shouldRefreshWorkspace(err)) {
           const freshAssignment = await onRefreshWorkspace()
           workspaceId = freshAssignment.workspaceId
-          res = await queryAPI.validate(sqlQuery, workspaceId, assignment._id)
+          res = await queryAPI.validate(executableQuery, workspaceId, assignment._id)
         } else {
           throw err
         }
@@ -108,17 +154,17 @@ function AttemptView({ assignment, onBack, initialQuery = '', onRefreshWorkspace
       // Save attempt if user is authenticated (save on every submit, pass or fail)
       if (isAuthenticated) {
         try {
-          await progressAPI.saveAttempt(assignment._id, workspaceId, sqlQuery, res.data.data.passed)
+          await progressAPI.saveAttempt(assignment._id, workspaceId, executableQuery, res.data.data.passed)
         } catch (err) {
           console.error('Failed to save progress:', err)
         }
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to run test cases.')
+      setError(formatSqlError(err, 'Failed to run test cases.'))
     } finally {
       setValidateLoading(false)
     }
-  }, [sqlQuery, assignment, isAuthenticated])
+  }, [sqlQuery, assignment, isAuthenticated, onRefreshWorkspace])
 
   const handleGetHint = useCallback(async () => {
     setHintLoading(true)

@@ -13,6 +13,25 @@ class QueryController {
     return cleaned.trim();
   }
 
+  static buildSqlError(err) {
+    const code = err?.code || 'SQL_ERROR';
+    const message = err?.message || 'SQL execution failed.';
+    const position = err?.position ? Number(err.position) : null;
+    const detail = err?.detail || null;
+    const hint = err?.hint || null;
+
+    return {
+      message,
+      details: {
+        code,
+        position,
+        detail,
+        hint,
+        severity: err?.severity || null,
+      },
+    };
+  }
+
   static async executeQuery(req, res) {
     const { query, workspaceId } = req.body;
 
@@ -76,17 +95,12 @@ class QueryController {
         }
       });
     } catch (err) {
-      let userFriendlyError = err.message;
-      switch (err.code) {
-        case '42P01': userFriendlyError = `Table not found. Available tables are in your schema. Check your table name.`; break;
-        case '42703': userFriendlyError = `Column "${err.column || ''}" does not exist. Check your column names.`; break;
-        case '42601': userFriendlyError = `SQL syntax error near: ${err.position ? `position ${err.position}` : 'unknown'}. Check your SQL syntax.`; break;
-        case '42804': userFriendlyError = `Data type mismatch: ${err.message}`; break;
-        case '57014': userFriendlyError = `Query timed out after 10 seconds. Simplify your query.`; break;
-        case '42883': userFriendlyError = `Function or operator not found: ${err.message}`; break;
-        default: userFriendlyError = err.message;
-      }
-      return res.status(400).json({ success: false, error: userFriendlyError });
+      const sqlError = QueryController.buildSqlError(err);
+      return res.status(400).json({
+        success: false,
+        error: sqlError.message,
+        sqlError: sqlError.details,
+      });
     } finally {
       client.release();
     }
@@ -218,7 +232,12 @@ class QueryController {
         }
       });
     } catch (err) {
-      return res.status(400).json({ success: false, error: err.message });
+      const sqlError = QueryController.buildSqlError(err);
+      return res.status(400).json({
+        success: false,
+        error: sqlError.message,
+        sqlError: sqlError.details,
+      });
     } finally {
       client.release();
     }
